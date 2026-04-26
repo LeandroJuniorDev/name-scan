@@ -1,3 +1,4 @@
+using NameScan.Platforms;
 using MudBlazor.Services;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -8,6 +9,8 @@ builder.Services.AddRazorComponents()
 builder.Services.AddMudServices();
 builder.Services.AddMemoryCache();
 builder.Services.AddHttpClient();
+builder.Services.AddSingleton<IPlatformRegistry>(serviceProvider =>
+    new PlatformRegistry(serviceProvider.GetRequiredService<IHttpClientFactory>().CreateClient()));
 
 var app = builder.Build();
 
