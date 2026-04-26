@@ -22,13 +22,6 @@ public sealed class HandleCheckService(
         string? nickname,
         [EnumeratorCancellation] CancellationToken cancellationToken)
     {
-        var invalidCharacterMessage = GetInvalidCharacterMessage(nickname);
-        if (invalidCharacterMessage is not null)
-        {
-            yield return CheckStreamEvent.ErrorEvent(invalidCharacterMessage);
-            yield break;
-        }
-
         var validation = validator.Validate(nickname);
         if (!validation.IsValid)
         {
@@ -108,17 +101,4 @@ public sealed class HandleCheckService(
             ".com.br" => 7,
             _ => 99
         };
-
-    private static string? GetInvalidCharacterMessage(string? nickname)
-    {
-        var normalized = (nickname ?? string.Empty).Trim().ToLowerInvariant();
-        if (string.IsNullOrWhiteSpace(normalized))
-        {
-            return null;
-        }
-
-        return normalized.Any(character => !(char.IsAsciiLetterOrDigit(character) || character is '.' or '_' or '-'))
-            ? "Use apenas letras sem acento, números, ponto, underline ou hífen."
-            : null;
-    }
 }

@@ -38,7 +38,8 @@ public sealed class HandleCheckServiceTests
         Assert.Equal(CheckStreamEventKind.Done, events[2].Kind);
         Assert.Equal(1, events[2].Summary!.Available);
         Assert.Equal(1, events[2].Summary!.Occupied);
-        Assert.Contains("minhamarcaapp", events[2].Suggestions);
+        Assert.NotNull(events[2].Suggestions);
+        Assert.Contains("minhamarcaapp", events[2].Suggestions!);
     }
 
     [Fact]
