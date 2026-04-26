@@ -73,9 +73,17 @@ public sealed class HandleCheckService(
 
         try
         {
-            var result = await checker.CheckAsync(nickname, timeout.Token);
-            cache.Set(cacheKey, result, CacheTtl);
+            var result = await checker.CheckAsync(nickname, timeout.Token).WaitAsync(timeout.Token);
+            if (ShouldCache(result))
+            {
+                cache.Set(cacheKey, result, CacheTtl);
+            }
+
             return result;
+        }
+        catch (OperationCanceledException) when (requestCancellationToken.IsCancellationRequested)
+        {
+            throw;
         }
         catch (OperationCanceledException) when (!requestCancellationToken.IsCancellationRequested)
         {
@@ -87,6 +95,9 @@ public sealed class HandleCheckService(
             return new PlatformCheckResult(checker.Name, string.Empty, CheckStatus.Error, ConfidenceLevel.Low, "Falha técnica temporária.");
         }
     }
+
+    private static bool ShouldCache(PlatformCheckResult result) =>
+        result.Status is CheckStatus.Available or CheckStatus.Occupied or CheckStatus.Invalid;
 
     private static int PlatformOrder(string platform) =>
         platform switch

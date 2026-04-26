@@ -72,6 +72,20 @@ public sealed class HandleCheckServiceTests
     }
 
     [Fact]
+    public async Task StreamAsync_DoesNotCacheTransientResults()
+    {
+        var checker = new SequenceChecker("TikTok", CheckStatus.Inconclusive, CheckStatus.Available);
+        var service = CreateService([checker]);
+
+        var firstRun = await CollectAsync(service.StreamAsync("minhamarca", CancellationToken.None));
+        var secondRun = await CollectAsync(service.StreamAsync("minhamarca", CancellationToken.None));
+
+        Assert.Equal(2, checker.CallCount);
+        Assert.Equal(CheckStatus.Inconclusive, firstRun.First(item => item.Kind == CheckStreamEventKind.Result).Result!.Status);
+        Assert.Equal(CheckStatus.Available, secondRun.First(item => item.Kind == CheckStreamEventKind.Result).Result!.Status);
+    }
+
+    [Fact]
     public async Task StreamAsync_ReturnsInconclusiveWhenCheckerTimesOut()
     {
         var service = CreateService([new TimeoutChecker("TikTok")]);
@@ -84,6 +98,16 @@ public sealed class HandleCheckServiceTests
         Assert.Equal(CheckStatus.Inconclusive, result.Status);
         Assert.Equal(ConfidenceLevel.Low, result.Confidence);
         Assert.Equal("Tempo limite atingido.", result.Note);
+    }
+
+    [Fact]
+    public async Task StreamAsync_StopsPromptlyWhenRequestIsCancelled()
+    {
+        var service = CreateService([new NonResponsiveChecker("TikTok")]);
+        using var cancellationTokenSource = new CancellationTokenSource(TimeSpan.FromMilliseconds(50));
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
+            await CollectAsync(service.StreamAsync("minhamarca", cancellationTokenSource.Token)));
     }
 
     private static HandleCheckService CreateService(IReadOnlyList<IPlatformChecker> checkers) =>
@@ -150,6 +174,35 @@ public sealed class HandleCheckServiceTests
         public async Task<PlatformCheckResult> CheckAsync(string nickname, CancellationToken cancellationToken)
         {
             await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
+            return new PlatformCheckResult(Name, $"https://example.com/{nickname}", CheckStatus.Available, ConfidenceLevel.High, "Teste.");
+        }
+    }
+
+    private sealed class SequenceChecker(string name, params CheckStatus[] statuses) : IPlatformChecker
+    {
+        private readonly Queue<CheckStatus> _statuses = new(statuses);
+
+        public int CallCount { get; private set; }
+
+        public string Id => name.ToLowerInvariant();
+        public string Name => name;
+
+        public Task<PlatformCheckResult> CheckAsync(string nickname, CancellationToken cancellationToken)
+        {
+            CallCount++;
+            var status = _statuses.Count > 0 ? _statuses.Dequeue() : CheckStatus.Available;
+            return Task.FromResult(new PlatformCheckResult(Name, $"https://example.com/{nickname}", status, ConfidenceLevel.High, "Teste."));
+        }
+    }
+
+    private sealed class NonResponsiveChecker(string name) : IPlatformChecker
+    {
+        public string Id => name.ToLowerInvariant();
+        public string Name => name;
+
+        public async Task<PlatformCheckResult> CheckAsync(string nickname, CancellationToken cancellationToken)
+        {
+            await Task.Delay(Timeout.InfiniteTimeSpan);
             return new PlatformCheckResult(Name, $"https://example.com/{nickname}", CheckStatus.Available, ConfidenceLevel.High, "Teste.");
         }
     }
