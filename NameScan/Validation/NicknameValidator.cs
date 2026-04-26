@@ -13,14 +13,14 @@ public sealed partial class NicknameValidator
             return NicknameValidationResult.Invalid("Digite um nickname para verificar.");
         }
 
-        if (normalized.Length < 2 || normalized.Length > 30)
-        {
-            return NicknameValidationResult.Invalid("Use entre 2 e 30 caracteres.");
-        }
-
         if (!AllowedCharacters().IsMatch(normalized))
         {
             return NicknameValidationResult.Invalid("Use apenas letras sem acento, números, ponto, underline ou hífen.");
+        }
+
+        if (normalized.Length < 2 || normalized.Length > 30)
+        {
+            return NicknameValidationResult.Invalid("Use entre 2 e 30 caracteres.");
         }
 
         return NicknameValidationResult.Valid(normalized);
