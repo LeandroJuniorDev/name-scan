@@ -59,6 +59,33 @@ public sealed class HandleCheckServiceTests
         Assert.Contains(results, result => result.Platform == "GitHub" && result.Status == CheckStatus.Available);
     }
 
+    [Fact]
+    public async Task StreamAsync_ReusesCachedPlatformResults()
+    {
+        var checker = new CountingChecker("GitHub", CheckStatus.Available);
+        var service = CreateService([checker]);
+
+        _ = await CollectAsync(service.StreamAsync("minhamarca", CancellationToken.None));
+        _ = await CollectAsync(service.StreamAsync("minhamarca", CancellationToken.None));
+
+        Assert.Equal(1, checker.CallCount);
+    }
+
+    [Fact]
+    public async Task StreamAsync_ReturnsInconclusiveWhenCheckerTimesOut()
+    {
+        var service = CreateService([new TimeoutChecker("TikTok")]);
+
+        var events = await CollectAsync(service.StreamAsync("minhamarca", CancellationToken.None));
+
+        var result = Assert.Single(events.Where(item => item.Kind == CheckStreamEventKind.Result).Select(item => item.Result));
+        Assert.NotNull(result);
+        Assert.Equal("TikTok", result!.Platform);
+        Assert.Equal(CheckStatus.Inconclusive, result.Status);
+        Assert.Equal(ConfidenceLevel.Low, result.Confidence);
+        Assert.Equal("Tempo limite atingido.", result.Note);
+    }
+
     private static HandleCheckService CreateService(IReadOnlyList<IPlatformChecker> checkers) =>
         new(
             new NicknameValidator(),
@@ -99,5 +126,31 @@ public sealed class HandleCheckServiceTests
 
         public Task<PlatformCheckResult> CheckAsync(string nickname, CancellationToken cancellationToken) =>
             throw new InvalidOperationException("Falha simulada.");
+    }
+
+    private sealed class CountingChecker(string name, CheckStatus status) : IPlatformChecker
+    {
+        public int CallCount { get; private set; }
+
+        public string Id => name.ToLowerInvariant();
+        public string Name => name;
+
+        public Task<PlatformCheckResult> CheckAsync(string nickname, CancellationToken cancellationToken)
+        {
+            CallCount++;
+            return Task.FromResult(new PlatformCheckResult(Name, $"https://example.com/{nickname}", status, ConfidenceLevel.High, "Teste."));
+        }
+    }
+
+    private sealed class TimeoutChecker(string name) : IPlatformChecker
+    {
+        public string Id => name.ToLowerInvariant();
+        public string Name => name;
+
+        public async Task<PlatformCheckResult> CheckAsync(string nickname, CancellationToken cancellationToken)
+        {
+            await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
+            return new PlatformCheckResult(Name, $"https://example.com/{nickname}", CheckStatus.Available, ConfidenceLevel.High, "Teste.");
+        }
     }
 }
