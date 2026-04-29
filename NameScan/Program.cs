@@ -44,7 +44,11 @@ app.MapGet("/api/check/stream", async (
     CancellationToken cancellationToken) =>
 {
     httpContext.Response.Headers.CacheControl = "no-cache";
-    httpContext.Response.Headers.Connection = "keep-alive";
+    if (string.Equals(httpContext.Request.Protocol, "HTTP/1.1", StringComparison.OrdinalIgnoreCase))
+    {
+        httpContext.Response.Headers.Connection = "keep-alive";
+    }
+
     httpContext.Response.ContentType = "text/event-stream; charset=utf-8";
 
     await foreach (var streamEvent in checkService.StreamAsync(nickname, cancellationToken))
