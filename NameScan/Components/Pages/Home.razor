@@ -1,5 +1,6 @@
 ﻿@page "/"
 @rendermode InteractiveServer
+@implements IAsyncDisposable
 @inject IJSRuntime JsRuntime
 @inject ReportFormatter ReportFormatter
 
@@ -62,7 +63,12 @@
                     </MudTd>
                     <MudTd>@ConfidenceLabel(context.Confidence)</MudTd>
                     <MudTd>@context.Note</MudTd>
-                    <MudTd><MudLink Href="@context.Url" Target="_blank">Abrir</MudLink></MudTd>
+                    <MudTd>
+                        @if (!string.IsNullOrWhiteSpace(context.Url))
+                        {
+                            <MudLink Href="@context.Url" Target="_blank">Abrir</MudLink>
+                        }
+                    </MudTd>
                 </RowTemplate>
             </MudTable>
         }
@@ -101,6 +107,8 @@
     private bool _isChecking;
     private readonly List<PlatformCheckResult> _results = [];
     private readonly List<string> _suggestions = [];
+    private DotNetObjectReference<Home>? _streamCallbackReference;
+    private IJSObjectReference? _streamHandle;
 
     private async Task StartCheckAsync()
     {
@@ -110,12 +118,17 @@
             return;
         }
 
+        await DisposeActiveStreamAsync(stopStream: true);
+
         _isChecking = true;
         _results.Clear();
         _suggestions.Clear();
 
-        var reference = DotNetObjectReference.Create(this);
-        await JsRuntime.InvokeVoidAsync("nameScanStream.start", _nickname, reference);
+        _streamCallbackReference = DotNetObjectReference.Create(this);
+        _streamHandle = await JsRuntime.InvokeAsync<IJSObjectReference>(
+            "nameScanStream.start",
+            _nickname,
+            _streamCallbackReference);
     }
 
     [JSInvokable]
@@ -132,24 +145,26 @@
     }
 
     [JSInvokable]
-    public Task OnStreamDone(string json)
+    public async Task OnStreamDone(string json)
     {
         var streamEvent = JsonSerializer.Deserialize<CheckStreamEvent>(json, JsonOptions);
         _suggestions.Clear();
         _suggestions.AddRange(streamEvent?.Suggestions ?? []);
         _isChecking = false;
+        await DisposeActiveStreamAsync(stopStream: false);
         StateHasChanged();
-        return Task.CompletedTask;
     }
 
     [JSInvokable]
-    public Task OnStreamError(string json)
+    public async Task OnStreamError(string json)
     {
         var streamEvent = JsonSerializer.Deserialize<CheckStreamEvent>(json, JsonOptions);
-        _validationMessage = streamEvent?.Message ?? "Não foi possível iniciar a verificação.";
+        _validationMessage = string.IsNullOrWhiteSpace(streamEvent?.Message)
+            ? "Não foi possível concluir a verificação."
+            : streamEvent.Message;
         _isChecking = false;
+        await DisposeActiveStreamAsync(stopStream: false);
         StateHasChanged();
-        return Task.CompletedTask;
     }
 
     private async Task CopyReportAsync()
@@ -174,4 +189,36 @@
     private static string ConfidenceLabel(ConfidenceLevel confidence) => ReportFormatter.ToPortuguese(confidence);
 
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
+
+    public async ValueTask DisposeAsync()
+    {
+        await DisposeActiveStreamAsync(stopStream: true);
+    }
+
+    private async ValueTask DisposeActiveStreamAsync(bool stopStream)
+    {
+        var streamHandle = _streamHandle;
+        var streamCallbackReference = _streamCallbackReference;
+
+        _streamHandle = null;
+        _streamCallbackReference = null;
+
+        if (streamHandle is not null)
+        {
+            try
+            {
+                if (stopStream)
+                {
+                    await streamHandle.InvokeVoidAsync("stop");
+                }
+
+                await streamHandle.DisposeAsync();
+            }
+            catch (JSDisconnectedException)
+            {
+            }
+        }
+
+        streamCallbackReference?.Dispose();
+    }
 }
