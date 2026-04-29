@@ -1,10 +1,224 @@
 ﻿@page "/"
+@rendermode InteractiveServer
+@implements IAsyncDisposable
+@inject IJSRuntime JsRuntime
+@inject ReportFormatter ReportFormatter
 
 <PageTitle>NameScan</PageTitle>
 
-<MudStack Spacing="3">
-    <MudText Typo="Typo.h3">NameScan</MudText>
-    <MudText Typo="Typo.body1" Color="Color.Secondary">
-        Shell base da aplicacao pronta para as proximas etapas do MVP.
-    </MudText>
-</MudStack>
+<MudContainer MaxWidth="MaxWidth.Large" Class="namescan-page">
+    <MudStack Spacing="4">
+        <MudStack Spacing="1">
+            <MudText Typo="Typo.h3">NameScan</MudText>
+            <MudText Typo="Typo.body1" Color="Color.Secondary">
+                Verifique rapidamente se um nickname ou nome de marca parece disponível nas principais plataformas.
+            </MudText>
+        </MudStack>
+
+        <MudAlert Severity="Severity.Info" Variant="Variant.Outlined">
+            Os resultados são estimativas baseadas em verificações públicas. Confirme manualmente antes de tomar uma decisão final.
+        </MudAlert>
+
+        <MudPaper Class="namescan-search" Elevation="0">
+            <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Start" Class="namescan-search-row">
+                <MudTextField @bind-Value="_nickname"
+                              Label="Nickname ou marca"
+                              Placeholder="minhamarca"
+                              Variant="Variant.Outlined"
+                              Immediate="true"
+                              Disabled="_isChecking"
+                              Error="@(!string.IsNullOrWhiteSpace(_validationMessage))"
+                              ErrorText="_validationMessage" />
+                <MudButton Variant="Variant.Filled"
+                           Color="Color.Primary"
+                           Size="Size.Large"
+                           Disabled="_isChecking"
+                           OnClick="StartCheckAsync">
+                    Verificar
+                </MudButton>
+            </MudStack>
+        </MudPaper>
+
+        @if (_isChecking)
+        {
+            <MudProgressLinear Color="Color.Primary" Indeterminate="true" />
+        }
+
+        @if (_results.Count > 0 || _isChecking)
+        {
+            <MudTable Items="_results" Dense="true" Hover="true">
+                <HeaderContent>
+                    <MudTh>Plataforma</MudTh>
+                    <MudTh>Status</MudTh>
+                    <MudTh>Confiança</MudTh>
+                    <MudTh>Observação</MudTh>
+                    <MudTh>Link</MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd>@context.Platform</MudTd>
+                    <MudTd>
+                        <MudChip T="string" Color="@StatusColor(context.Status)">
+                            @StatusLabel(context.Status)
+                        </MudChip>
+                    </MudTd>
+                    <MudTd>@ConfidenceLabel(context.Confidence)</MudTd>
+                    <MudTd>@context.Note</MudTd>
+                    <MudTd>
+                        @if (!string.IsNullOrWhiteSpace(context.Url))
+                        {
+                            <MudLink Href="@context.Url" Target="_blank">Abrir</MudLink>
+                        }
+                    </MudTd>
+                </RowTemplate>
+            </MudTable>
+        }
+
+        @if (_suggestions.Count > 0)
+        {
+            <MudStack Spacing="2">
+                <MudText Typo="Typo.h6">Sugestões alternativas</MudText>
+                <MudStack Row="true" Spacing="1" Class="namescan-suggestions">
+                    @foreach (var suggestion in _suggestions)
+                    {
+                        <MudChip T="string">@suggestion</MudChip>
+                    }
+                </MudStack>
+            </MudStack>
+        }
+
+        @if (_results.Count > 0)
+        {
+            <MudButton Variant="Variant.Outlined" Color="Color.Primary" OnClick="CopyReportAsync">
+                Copiar relatório
+            </MudButton>
+        }
+
+        <MudDivider />
+        <MudText Typo="Typo.body2">
+            Este projeto é gratuito. Se ele te ajudou, considere apoiar pelo
+            <MudLink Href="https://apoia.se/" Target="_blank">Apoia.se</MudLink>.
+        </MudText>
+    </MudStack>
+</MudContainer>
+
+@code {
+    private string _nickname = string.Empty;
+    private string? _validationMessage;
+    private bool _isChecking;
+    private readonly List<PlatformCheckResult> _results = [];
+    private readonly List<string> _suggestions = [];
+    private DotNetObjectReference<Home>? _streamCallbackReference;
+    private IJSObjectReference? _streamHandle;
+
+    private async Task StartCheckAsync()
+    {
+        _validationMessage = string.IsNullOrWhiteSpace(_nickname) ? "Digite um nickname para verificar." : null;
+        if (_validationMessage is not null)
+        {
+            return;
+        }
+
+        await DisposeActiveStreamAsync(stopStream: true);
+
+        _isChecking = true;
+        _results.Clear();
+        _suggestions.Clear();
+
+        _streamCallbackReference = DotNetObjectReference.Create(this);
+        _streamHandle = await JsRuntime.InvokeAsync<IJSObjectReference>(
+            "nameScanStream.start",
+            _nickname,
+            _streamCallbackReference);
+    }
+
+    [JSInvokable]
+    public Task OnStreamResult(string json)
+    {
+        var streamEvent = JsonSerializer.Deserialize<CheckStreamEvent>(json, JsonOptions);
+        if (streamEvent?.Result is not null)
+        {
+            _results.Add(streamEvent.Result);
+            StateHasChanged();
+        }
+
+        return Task.CompletedTask;
+    }
+
+    [JSInvokable]
+    public async Task OnStreamDone(string json)
+    {
+        var streamEvent = JsonSerializer.Deserialize<CheckStreamEvent>(json, JsonOptions);
+        _suggestions.Clear();
+        _suggestions.AddRange(streamEvent?.Suggestions ?? []);
+        _isChecking = false;
+        await DisposeActiveStreamAsync(stopStream: false);
+        StateHasChanged();
+    }
+
+    [JSInvokable]
+    public async Task OnStreamError(string json)
+    {
+        var streamEvent = JsonSerializer.Deserialize<CheckStreamEvent>(json, JsonOptions);
+        _validationMessage = string.IsNullOrWhiteSpace(streamEvent?.Message)
+            ? "Não foi possível concluir a verificação."
+            : streamEvent.Message;
+        _isChecking = false;
+        await DisposeActiveStreamAsync(stopStream: false);
+        StateHasChanged();
+    }
+
+    private async Task CopyReportAsync()
+    {
+        var report = ReportFormatter.Format(_nickname, _results);
+        await JsRuntime.InvokeVoidAsync("navigator.clipboard.writeText", report);
+    }
+
+    private static Color StatusColor(CheckStatus status) =>
+        status switch
+        {
+            CheckStatus.Available => Color.Success,
+            CheckStatus.Occupied => Color.Error,
+            CheckStatus.Invalid => Color.Warning,
+            CheckStatus.Inconclusive => Color.Info,
+            CheckStatus.Error => Color.Default,
+            _ => Color.Default
+        };
+
+    private static string StatusLabel(CheckStatus status) => ReportFormatter.ToPortuguese(status);
+
+    private static string ConfidenceLabel(ConfidenceLevel confidence) => ReportFormatter.ToPortuguese(confidence);
+
+    private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
+
+    public async ValueTask DisposeAsync()
+    {
+        await DisposeActiveStreamAsync(stopStream: true);
+    }
+
+    private async ValueTask DisposeActiveStreamAsync(bool stopStream)
+    {
+        var streamHandle = _streamHandle;
+        var streamCallbackReference = _streamCallbackReference;
+
+        _streamHandle = null;
+        _streamCallbackReference = null;
+
+        if (streamHandle is not null)
+        {
+            try
+            {
+                if (stopStream)
+                {
+                    await streamHandle.InvokeVoidAsync("stop");
+                }
+
+                await streamHandle.DisposeAsync();
+            }
+            catch (JSDisconnectedException)
+            {
+            }
+        }
+
+        streamCallbackReference?.Dispose();
+    }
+}
