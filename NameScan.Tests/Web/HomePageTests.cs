@@ -22,9 +22,23 @@ public sealed class HomePageTests
         var markup = component.Markup;
 
         Assert.Contains("NameScan", markup);
-        Assert.Contains("Verificar", markup);
-        Assert.Contains("Apoia.se", markup);
-        Assert.Contains("Os resultados são estimativas", markup);
+        Assert.Contains("ESCANEAR", markup);
+        Assert.Contains("Verifique disponibilidade em Instagram", markup);
+        Assert.Contains("Os resultados são informativos", markup);
+    }
+
+    [Fact]
+    public async Task Home_RendersHeroAndRealtimeResultsSections()
+    {
+        await using var context = CreateContext();
+        var component = context.Render<Home>();
+        var markup = component.Markup;
+
+        Assert.Contains("Verifique a disponibilidade do", markup);
+        Assert.Contains("seu nome nas redes.", markup);
+        Assert.Contains("Resultados em tempo real", markup);
+        Assert.Contains("DOMÍNIOS", markup);
+        Assert.Contains("SOCIAL", markup);
     }
 
     [Fact]

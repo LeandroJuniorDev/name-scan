@@ -7,99 +7,160 @@
 
 <PageTitle>NameScan</PageTitle>
 
-<MudContainer MaxWidth="MaxWidth.Large" Class="namescan-page">
-    <MudStack Spacing="4">
-        <MudStack Spacing="1">
-            <MudText Typo="Typo.h3">NameScan</MudText>
-            <MudText Typo="Typo.body1" Color="Color.Secondary">
-                Verifique rapidamente se um nickname ou nome de marca parece disponível nas principais plataformas.
-            </MudText>
-        </MudStack>
+<MudContainer MaxWidth="MaxWidth.False" Class="namescan-home">
+    <section class="namescan-hero">
+        <MudText Typo="Typo.h1" Class="namescan-hero-title">
+            Verifique a disponibilidade do
+            <br />
+            seu nome nas redes.
+        </MudText>
 
-        <MudAlert Severity="Severity.Info" Variant="Variant.Outlined">
-            Os resultados são estimativas baseadas em verificações públicas. Confirme manualmente antes de tomar uma decisão final.
-        </MudAlert>
-
-        <MudPaper Class="namescan-search" Elevation="0">
-            <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Start" Class="namescan-search-row">
+        <MudPaper Class="namescan-search-panel" Elevation="0">
+            <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center" Class="namescan-search-row">
+                <MudIcon Icon="@Icons.Material.Outlined.Search" Class="namescan-search-icon" />
                 <MudTextField @bind-Value="_nickname"
-                              Label="Nickname ou marca"
-                              Placeholder="minhamarca"
-                              Variant="Variant.Outlined"
+                              Placeholder="Digite um nickname ou marca..."
+                              Variant="Variant.Text"
                               Immediate="true"
                               Disabled="_isChecking"
                               Error="@(!string.IsNullOrWhiteSpace(_validationMessage))"
-                              ErrorText="@_validationMessage" />
+                              ErrorText="@_validationMessage"
+                              Class="namescan-search-field"
+                              Adornment="Adornment.None"
+                              Underline="false" />
                 <MudButton Variant="Variant.Filled"
-                           Color="Color.Primary"
-                           Size="Size.Large"
+                           Class="namescan-search-button"
                            Disabled="_isChecking"
                            OnClick="StartCheckAsync">
-                    Verificar
+                    ESCANEAR
                 </MudButton>
             </MudStack>
         </MudPaper>
 
-        @if (_isChecking)
-        {
-            <MudProgressLinear Color="Color.Primary" Indeterminate="true" />
-        }
+        <MudText Typo="Typo.body1" Class="namescan-hero-subtitle">
+            Verifique disponibilidade em Instagram, TikTok, X, YouTube, GitHub, Twitch, .com e .com.br
+        </MudText>
+    </section>
+
+    @if (_isChecking)
+    {
+        <MudProgressLinear Color="Color.Primary" Indeterminate="true" Class="namescan-progress" />
+    }
+
+    <section class="namescan-results-section">
+        <div class="namescan-results-header">
+            <div class="namescan-results-title-wrap">
+                <MudIcon Icon="@Icons.Material.Outlined.Autorenew" Class="namescan-results-title-icon" />
+                <MudText Typo="Typo.h4" Class="namescan-results-title">Resultados em tempo real</MudText>
+            </div>
+
+            <MudStack Row="true" Spacing="1" Class="namescan-filter-chips">
+                <MudChip T="string" Class="namescan-filter-chip">DOMÍNIOS</MudChip>
+                <MudChip T="string" Class="namescan-filter-chip">SOCIAL</MudChip>
+            </MudStack>
+        </div>
+
+        <MudDivider Class="namescan-results-divider" />
 
         @if (_results.Count > 0 || _isChecking)
         {
-            <MudTable Items="_results" Dense="true" Hover="true">
-                <HeaderContent>
-                    <MudTh>Plataforma</MudTh>
-                    <MudTh>Status</MudTh>
-                    <MudTh>Confiança</MudTh>
-                    <MudTh>Observação</MudTh>
-                    <MudTh>Link</MudTh>
-                </HeaderContent>
-                <RowTemplate>
-                    <MudTd>@context.Platform</MudTd>
-                    <MudTd>
-                        <MudChip T="string" Color="@StatusColor(context.Status)">
-                            @StatusLabel(context.Status)
-                        </MudChip>
-                    </MudTd>
-                    <MudTd>@ConfidenceLabel(context.Confidence)</MudTd>
-                    <MudTd>@context.Note</MudTd>
-                    <MudTd>
-                        @if (!string.IsNullOrWhiteSpace(context.Url))
-                        {
-                            <MudLink Href="@context.Url" Target="_blank" OnClick="@(() => LogResultLinkClick(context))">Abrir</MudLink>
-                        }
-                    </MudTd>
-                </RowTemplate>
-            </MudTable>
-        }
+            <div class="namescan-results-grid">
+                @foreach (var result in _results)
+                {
+                    <MudPaper Class="namescan-result-card" Elevation="0">
+                        <div class="namescan-result-card-main">
+                            <div class="@($"namescan-result-icon {ResultKindClass(result)}")">
+                                <MudIcon Icon="@ResultIcon(result)" />
+                            </div>
 
-        @if (_suggestions.Count > 0)
-        {
-            <MudStack Spacing="2">
-                <MudText Typo="Typo.h6">Sugestões alternativas</MudText>
-                <MudStack Row="true" Spacing="1" Class="namescan-suggestions">
-                    @foreach (var suggestion in _suggestions)
-                    {
-                        <MudChip T="string">@suggestion</MudChip>
-                    }
-                </MudStack>
+                            <div class="namescan-result-copy">
+                                <MudText Typo="Typo.h5" Class="namescan-result-title">@ResultTitle(result)</MudText>
+                                <MudText Typo="Typo.body1" Class="namescan-result-subtitle">@ResultSubtitle(result)</MudText>
+                                @if (!string.IsNullOrWhiteSpace(result.Note))
+                                {
+                                    <MudText Typo="Typo.caption" Class="namescan-result-note">@result.Note</MudText>
+                                }
+                            </div>
+                        </div>
+
+                        <div class="namescan-result-actions">
+                            <MudChip T="string"
+                                     Class="@($"namescan-status-chip {StatusClass(result.Status)}")">
+                                @StatusLabel(result.Status)
+                            </MudChip>
+
+                            @if (!string.IsNullOrWhiteSpace(result.Url))
+                            {
+                                <MudLink Href="@result.Url"
+                                         Target="_blank"
+                                         Class="namescan-result-link"
+                                         OnClick="@(() => LogResultLinkClick(result))">
+                                    Abrir
+                                </MudLink>
+                            }
+                        </div>
+                    </MudPaper>
+                }
+
+                @if (_isChecking)
+                {
+                    <MudPaper Class="namescan-result-card namescan-result-card--checking" Elevation="0">
+                        <div class="namescan-result-card-main">
+                            <div class="namescan-result-icon is-checking">
+                                <MudProgressCircular Size="Size.Medium" Indeterminate="true" />
+                            </div>
+
+                            <div class="namescan-result-copy">
+                                <MudText Typo="Typo.h5" Class="namescan-result-title">Verificando plataformas...</MudText>
+                                <MudText Typo="Typo.body1" Class="namescan-result-subtitle">Os resultados aparecem em tempo real conforme cada checagem responde.</MudText>
+                            </div>
+                        </div>
+
+                        <div class="namescan-result-actions">
+                            <MudChip T="string" Class="namescan-status-chip is-checking">
+                                CHECANDO...
+                            </MudChip>
+                        </div>
+                    </MudPaper>
+                }
+            </div>
+        }
+    </section>
+
+    @if (_suggestions.Count > 0)
+    {
+        <section class="namescan-suggestions-panel">
+            <MudText Typo="Typo.h6" Class="namescan-suggestions-title">Sugestões alternativas</MudText>
+            <MudStack Row="true" Spacing="1" Class="namescan-suggestions">
+                @foreach (var suggestion in _suggestions)
+                {
+                    <MudChip T="string" Class="namescan-suggestion-chip">@suggestion</MudChip>
+                }
             </MudStack>
-        }
+        </section>
+    }
 
-        @if (_results.Count > 0)
-        {
-            <MudButton Variant="Variant.Outlined" Color="Color.Primary" OnClick="CopyReportAsync">
+    @if (_results.Count > 0)
+    {
+        <div class="namescan-copy-action">
+            <MudButton Variant="Variant.Outlined" Class="namescan-copy-button" OnClick="CopyReportAsync">
                 Copiar relatório
             </MudButton>
-        }
+        </div>
+    }
 
-        <MudDivider />
-        <MudText Typo="Typo.body2">
-            Este projeto é gratuito. Se ele te ajudou, considere apoiar pelo
-            <MudLink Href="https://apoia.se/" Target="_blank" OnClick="LogSupportClick">Apoia.se</MudLink>.
-        </MudText>
-    </MudStack>
+    <footer class="namescan-footer">
+        <div class="namescan-footer-inner">
+            <MudText Typo="Typo.h4" Class="namescan-footer-brand">NameScan</MudText>
+            <MudText Typo="Typo.body2" Class="namescan-footer-copy">
+                © 2024 NameScan. Os resultados são informativos e podem variar conforme o cache das plataformas.
+            </MudText>
+            <MudText Typo="Typo.body2" Class="namescan-footer-support">
+                Este projeto é gratuito. Se ele te ajudou, considere apoiar pelo
+                <MudLink Href="https://apoia.se/" Target="_blank" Class="namescan-footer-link" OnClick="LogSupportClick">Apoia.se</MudLink>.
+            </MudText>
+        </div>
+    </footer>
 </MudContainer>
 
 @code {
@@ -196,20 +257,64 @@
         Logger.LogInformation("NameScan support link clicked");
     }
 
-    private static Color StatusColor(CheckStatus status) =>
-        status switch
-        {
-            CheckStatus.Available => Color.Success,
-            CheckStatus.Occupied => Color.Error,
-            CheckStatus.Invalid => Color.Warning,
-            CheckStatus.Inconclusive => Color.Info,
-            CheckStatus.Error => Color.Default,
-            _ => Color.Default
-        };
-
     private static string StatusLabel(CheckStatus status) => ReportFormatter.ToPortuguese(status);
 
-    private static string ConfidenceLabel(ConfidenceLevel confidence) => ReportFormatter.ToPortuguese(confidence);
+    private static string StatusClass(CheckStatus status) =>
+        status switch
+        {
+            CheckStatus.Available => "is-available",
+            CheckStatus.Occupied => "is-occupied",
+            CheckStatus.Invalid => "is-invalid",
+            CheckStatus.Inconclusive => "is-inconclusive",
+            CheckStatus.Error => "is-error",
+            _ => string.Empty
+        };
+
+    private static string ResultKindClass(PlatformCheckResult result) =>
+        IsDomain(result.Platform)
+            ? "is-domain"
+            : result.Platform switch
+            {
+                "Instagram" => "is-instagram",
+                "YouTube" => "is-youtube",
+                "GitHub" => "is-github",
+                _ => "is-social"
+            };
+
+    private static string ResultIcon(PlatformCheckResult result) =>
+        result.Platform switch
+        {
+            ".com" or ".com.br" => Icons.Material.Outlined.Language,
+            "Instagram" => Icons.Material.Outlined.AlternateEmail,
+            "YouTube" => Icons.Material.Outlined.SmartDisplay,
+            "GitHub" => Icons.Material.Outlined.Code,
+            "TikTok" => Icons.Material.Outlined.MusicNote,
+            "X" => Icons.Material.Outlined.Tag,
+            "Twitch" => Icons.Material.Outlined.VideogameAsset,
+            _ => Icons.Material.Outlined.Public
+        };
+
+    private string ResultTitle(PlatformCheckResult result)
+    {
+        if (IsDomain(result.Platform))
+        {
+            return $"{_nickname}{result.Platform}";
+        }
+
+        if (result.Platform == "GitHub")
+        {
+            return $"github.com/{_nickname}";
+        }
+
+        return $"@{_nickname}";
+    }
+
+    private static string ResultSubtitle(PlatformCheckResult result) =>
+        IsDomain(result.Platform)
+            ? result.Platform == ".com" ? "Domínio internacional" : "Domínio brasileiro"
+            : result.Platform;
+
+    private static bool IsDomain(string platform) => platform is ".com" or ".com.br";
 
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
