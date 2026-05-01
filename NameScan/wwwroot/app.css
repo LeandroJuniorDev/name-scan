@@ -1,5 +1,23 @@
 :root {
-    color-scheme: light;
+    color-scheme: dark;
+    --namescan-bg: #17171b;
+    --namescan-panel: #202025;
+    --namescan-panel-soft: #25252b;
+    --namescan-panel-strong: #1f1f24;
+    --namescan-border: rgba(255, 255, 255, 0.08);
+    --namescan-border-soft: rgba(255, 255, 255, 0.05);
+    --namescan-text: #f3f3f6;
+    --namescan-text-soft: #cfcfd7;
+    --namescan-text-muted: #9b9ba6;
+    --namescan-accent: #c7d0f1;
+    --namescan-success: #39e0aa;
+    --namescan-success-bg: rgba(57, 224, 170, 0.1);
+    --namescan-danger: #ffac9f;
+    --namescan-danger-bg: rgba(157, 58, 58, 0.22);
+    --namescan-warning: #f0c98f;
+    --namescan-warning-bg: rgba(181, 128, 53, 0.18);
+    --namescan-info: #bbc4eb;
+    --namescan-info-bg: rgba(112, 126, 192, 0.16);
 }
 
 html,
@@ -9,44 +27,429 @@ body {
 
 body {
     margin: 0;
-    background: #f7f9fb;
+    background: var(--namescan-bg);
+    color: var(--namescan-text);
+    font-family: Inter, "Segoe UI", sans-serif;
 }
 
-.namescan-page {
-    padding-top: 48px;
-    padding-bottom: 48px;
+.namescan-home {
+    padding: 48px 0 0;
 }
 
-.namescan-search {
-    padding: 20px;
-    border: 1px solid #d9e2ec;
-    border-radius: 8px;
-    background: #ffffff;
+.namescan-hero {
+    width: min(100%, 1040px);
+    margin: 0 auto;
+    padding: 34px 24px 32px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 28px;
+}
+
+.namescan-hero-title {
+    margin: 0;
+    color: var(--namescan-text);
+    font-size: clamp(3rem, 5vw, 4.5rem);
+    font-weight: 800;
+    line-height: 1.02;
+    letter-spacing: -0.05em;
+    text-align: center;
+    text-shadow: 0 2px 0 rgba(0, 0, 0, 0.35);
+}
+
+.namescan-search-panel {
+    width: min(100%, 840px);
+    padding: 10px 20px;
+    background: var(--namescan-panel-strong);
+    border: 1px solid rgba(207, 214, 242, 0.85);
+    border-radius: 0;
 }
 
 .namescan-search-row {
     width: 100%;
 }
 
-.namescan-search-row .mud-input-control {
-    flex: 1;
+.namescan-search-icon {
+    color: #8e8e97;
+    font-size: 2rem;
+    flex: 0 0 auto;
+}
+
+.namescan-search-field {
+    flex: 1 1 auto;
+}
+
+.namescan-search-field .mud-input-control {
+    margin-top: 0;
+}
+
+.namescan-search-field .mud-input {
+    color: var(--namescan-text-soft);
+    font-size: 1.05rem;
+}
+
+.namescan-search-field .mud-input::placeholder {
+    color: #71717b;
+    opacity: 1;
+}
+
+.namescan-search-field .mud-input-slot {
+    padding: 0;
+}
+
+.namescan-search-button {
+    min-width: 174px;
+    min-height: 56px;
+    padding-inline: 24px;
+    background: var(--namescan-accent);
+    color: #1d2132;
+    font-size: 1rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    border-radius: 2px;
+    box-shadow: none;
+}
+
+.namescan-search-button.mud-disabled {
+    color: #434857;
+    background: #9ea5bf;
+}
+
+.namescan-hero-subtitle {
+    max-width: 840px;
+    margin: 0;
+    color: var(--namescan-text-soft);
+    text-align: center;
+    font-size: 1rem;
+    line-height: 1.6;
+}
+
+.namescan-progress {
+    width: min(100% - 48px, 1120px);
+    margin: 0 auto 18px;
+}
+
+.namescan-results-section {
+    width: min(100%, 1120px);
+    margin: 28px auto 0;
+    padding: 0 24px 56px;
+}
+
+.namescan-results-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+}
+
+.namescan-results-title-wrap {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+
+.namescan-results-title-icon {
+    color: #cad1f3;
+    font-size: 1.8rem;
+}
+
+.namescan-results-title {
+    margin: 0;
+    color: var(--namescan-text);
+    font-weight: 800;
+    letter-spacing: -0.03em;
+}
+
+.namescan-filter-chips {
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}
+
+.namescan-filter-chip {
+    color: #d3d3da;
+    background: #33333a;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 6px;
+    font-size: 0.82rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+}
+
+.namescan-results-divider {
+    margin-block: 18px 42px;
+    border-color: var(--namescan-border);
+}
+
+.namescan-results-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 20px;
+}
+
+.namescan-result-card {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 18px;
+    min-height: 126px;
+    padding: 24px 20px;
+    background: var(--namescan-panel);
+    border: 1px solid var(--namescan-border-soft);
+    border-radius: 8px;
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.16);
+}
+
+.namescan-result-card--checking {
+    border-style: dashed;
+}
+
+.namescan-result-card-main {
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    min-width: 0;
+}
+
+.namescan-result-icon {
+    width: 52px;
+    height: 52px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    font-size: 1.75rem;
+    color: #f1f1f4;
+    background: #35353c;
+    flex: 0 0 auto;
+}
+
+.namescan-result-icon.is-domain {
+    background: rgba(137, 100, 44, 0.22);
+    color: #f0d2a0;
+}
+
+.namescan-result-icon.is-instagram {
+    background: rgba(119, 36, 48, 0.45);
+    color: #ffb2a8;
+}
+
+.namescan-result-icon.is-youtube {
+    background: rgba(84, 84, 92, 0.45);
+    color: #d6d6dd;
+}
+
+.namescan-result-icon.is-github {
+    background: rgba(74, 74, 84, 0.48);
+    color: #f1f1f4;
+}
+
+.namescan-result-icon.is-social,
+.namescan-result-icon.is-checking {
+    background: rgba(74, 74, 84, 0.48);
+    color: #cfd5f0;
+}
+
+.namescan-result-copy {
+    min-width: 0;
+}
+
+.namescan-result-title {
+    margin: 0 0 4px;
+    color: var(--namescan-text);
+    font-size: 1.1rem;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    overflow-wrap: anywhere;
+}
+
+.namescan-result-subtitle {
+    margin: 0;
+    color: var(--namescan-text-soft);
+    font-size: 0.98rem;
+}
+
+.namescan-result-note {
+    display: block;
+    margin-top: 6px;
+    color: var(--namescan-text-muted);
+    line-height: 1.45;
+}
+
+.namescan-result-actions {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 12px;
+    flex: 0 0 auto;
+}
+
+.namescan-status-chip {
+    border: 1px solid transparent;
+    border-radius: 6px;
+    font-size: 0.86rem;
+    font-weight: 800;
+    letter-spacing: 0.05em;
+}
+
+.namescan-status-chip.is-available {
+    color: var(--namescan-success);
+    background: var(--namescan-success-bg);
+    border-color: rgba(57, 224, 170, 0.24);
+}
+
+.namescan-status-chip.is-occupied {
+    color: var(--namescan-danger);
+    background: var(--namescan-danger-bg);
+    border-color: rgba(255, 172, 159, 0.22);
+}
+
+.namescan-status-chip.is-invalid,
+.namescan-status-chip.is-inconclusive {
+    color: var(--namescan-warning);
+    background: var(--namescan-warning-bg);
+    border-color: rgba(240, 201, 143, 0.18);
+}
+
+.namescan-status-chip.is-error,
+.namescan-status-chip.is-checking {
+    color: var(--namescan-info);
+    background: var(--namescan-info-bg);
+    border-color: rgba(187, 196, 235, 0.18);
+}
+
+.namescan-result-link {
+    color: #cbd2f2;
+    font-size: 0.92rem;
+    font-weight: 700;
+    text-decoration: none;
+}
+
+.namescan-result-link:hover {
+    text-decoration: underline;
+}
+
+.namescan-suggestions-panel {
+    width: min(100%, 1120px);
+    margin: 0 auto;
+    padding: 0 24px 36px;
+}
+
+.namescan-suggestions-title {
+    margin: 0 0 14px;
+    color: var(--namescan-text);
 }
 
 .namescan-suggestions {
     flex-wrap: wrap;
 }
 
-@media (max-width: 640px) {
-    .namescan-page {
-        padding-top: 24px;
-        padding-bottom: 24px;
+.namescan-suggestion-chip {
+    color: var(--namescan-text-soft);
+    background: #2c2c33;
+    border: 1px solid var(--namescan-border-soft);
+    border-radius: 999px;
+}
+
+.namescan-copy-action {
+    width: min(100%, 1120px);
+    margin: 0 auto;
+    padding: 0 24px 42px;
+}
+
+.namescan-copy-button {
+    color: var(--namescan-accent);
+    border-color: rgba(199, 208, 241, 0.28);
+}
+
+.namescan-footer {
+    margin-top: 36px;
+    padding: 56px 24px 72px;
+    background: #1f1f24;
+    border-top: 1px solid var(--namescan-border);
+}
+
+.namescan-footer-inner {
+    width: min(100%, 1120px);
+    margin: 0 auto;
+}
+
+.namescan-footer-brand {
+    margin: 0 0 18px;
+    color: var(--namescan-text);
+    font-weight: 800;
+    letter-spacing: -0.03em;
+}
+
+.namescan-footer-copy,
+.namescan-footer-support {
+    max-width: 520px;
+    margin: 0;
+    color: var(--namescan-text-muted);
+    line-height: 1.75;
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+}
+
+.namescan-footer-support {
+    margin-top: 14px;
+    text-transform: none;
+    letter-spacing: normal;
+}
+
+.namescan-footer-link {
+    color: #d9def6;
+}
+
+@media (max-width: 960px) {
+    .namescan-results-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 720px) {
+    .namescan-home {
+        padding-top: 28px;
+    }
+
+    .namescan-hero {
+        padding-inline: 16px;
+        gap: 20px;
+    }
+
+    .namescan-search-panel {
+        padding: 14px 16px;
     }
 
     .namescan-search-row {
         flex-direction: column;
+        align-items: stretch;
     }
 
-    .namescan-search-row .mud-button-root {
+    .namescan-search-button {
         width: 100%;
+    }
+
+    .namescan-results-section,
+    .namescan-suggestions-panel,
+    .namescan-copy-action {
+        padding-inline: 16px;
+    }
+
+    .namescan-results-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .namescan-result-card {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .namescan-result-actions {
+        align-items: flex-start;
+    }
+
+    .namescan-footer {
+        padding-inline: 16px;
     }
 }

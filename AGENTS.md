@@ -225,13 +225,17 @@ Expectativas:
 
 - Verifique sempre se o worktree está limpo antes de grandes mudanças.
 - Não sobrescreva trabalho alheio.
+- Nunca implemente diretamente na `main`.
+- Sempre atualize a `main` a partir de `origin/main` antes de criar uma nova branch de implementação.
+- Sempre crie uma branch nova para trabalho de implementação depois de sincronizar a `main`.
+- Os prefixos das branches devem seguir o padrão de conventional commits, como `feat/...`, `fix/...`, `docs/...`, `chore/...` e similares.
 - Siga a convenção de commits já visível no histórico:
   - `feat: ...`
   - `fix: ...`
   - `test: ...`
   - `build: ...`
   - `chore: ...`
-- O histórico existente usa branches como `feat/...` e `docs/...`; se precisar criar branch e não houver instrução diferente, prefira seguir a convenção já adotada no repositório.
+- O histórico existente já usa branches como `feat/...` e `docs/...`; siga essa convenção ao abrir novas branches.
 
 ## Checklist Antes De Encerrar Uma Tarefa
 
