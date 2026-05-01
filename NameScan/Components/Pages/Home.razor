@@ -3,6 +3,7 @@
 @implements IAsyncDisposable
 @inject IJSRuntime JsRuntime
 @inject ReportFormatter ReportFormatter
+@inject ILogger<Home> Logger
 
 <PageTitle>NameScan</PageTitle>
 
@@ -28,7 +29,7 @@
                               Immediate="true"
                               Disabled="_isChecking"
                               Error="@(!string.IsNullOrWhiteSpace(_validationMessage))"
-                              ErrorText="_validationMessage" />
+                              ErrorText="@_validationMessage" />
                 <MudButton Variant="Variant.Filled"
                            Color="Color.Primary"
                            Size="Size.Large"
@@ -66,7 +67,7 @@
                     <MudTd>
                         @if (!string.IsNullOrWhiteSpace(context.Url))
                         {
-                            <MudLink Href="@context.Url" Target="_blank">Abrir</MudLink>
+                            <MudLink Href="@context.Url" Target="_blank" OnClick="@(() => LogResultLinkClick(context))">Abrir</MudLink>
                         }
                     </MudTd>
                 </RowTemplate>
@@ -96,7 +97,7 @@
         <MudDivider />
         <MudText Typo="Typo.body2">
             Este projeto é gratuito. Se ele te ajudou, considere apoiar pelo
-            <MudLink Href="https://apoia.se/" Target="_blank">Apoia.se</MudLink>.
+            <MudLink Href="https://apoia.se/" Target="_blank" OnClick="LogSupportClick">Apoia.se</MudLink>.
         </MudText>
     </MudStack>
 </MudContainer>
@@ -124,11 +125,22 @@
         _results.Clear();
         _suggestions.Clear();
 
-        _streamCallbackReference = DotNetObjectReference.Create(this);
-        _streamHandle = await JsRuntime.InvokeAsync<IJSObjectReference>(
-            "nameScanStream.start",
-            _nickname,
-            _streamCallbackReference);
+        try
+        {
+            _streamCallbackReference = DotNetObjectReference.Create(this);
+            _streamHandle = await JsRuntime.InvokeAsync<IJSObjectReference>(
+                "nameScanStream.start",
+                _nickname,
+                _streamCallbackReference);
+            Logger.LogInformation("NameScan search started");
+        }
+        catch (JSException exception)
+        {
+            Logger.LogWarning(exception, "NameScan stream bootstrap failed");
+            _validationMessage = "Não foi possível iniciar a verificação.";
+            _isChecking = false;
+            await DisposeActiveStreamAsync(stopStream: false);
+        }
     }
 
     [JSInvokable]
@@ -171,6 +183,17 @@
     {
         var report = ReportFormatter.Format(_nickname, _results);
         await JsRuntime.InvokeVoidAsync("navigator.clipboard.writeText", report);
+        Logger.LogInformation("NameScan report copied");
+    }
+
+    private void LogResultLinkClick(PlatformCheckResult result)
+    {
+        Logger.LogInformation("NameScan result link clicked {Platform}", result.Platform);
+    }
+
+    private void LogSupportClick()
+    {
+        Logger.LogInformation("NameScan support link clicked");
     }
 
     private static Color StatusColor(CheckStatus status) =>

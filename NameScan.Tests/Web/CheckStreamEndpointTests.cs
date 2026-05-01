@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.Hosting;
 using System.Net;
 
 namespace NameScan.Tests.Web;
@@ -65,5 +66,18 @@ public sealed class CheckStreamEndpointTests : IClassFixture<WebApplicationFacto
         Assert.Contains("event: error", content);
         Assert.Contains("data:", content);
         Assert.Contains("Use apenas letras sem acento", content);
+    }
+
+    [Theory]
+    [InlineData("/_content/MudBlazor/MudBlazor.min.js")]
+    [InlineData("/js/check-stream.js")]
+    public async Task StaticAssets_ServeRequiredJavaScriptFiles(string path)
+    {
+        var client = _factory.WithWebHostBuilder(builder => builder.UseEnvironment("Production")).CreateClient();
+
+        using var response = await client.GetAsync(path);
+
+        Assert.True(response.IsSuccessStatusCode);
+        Assert.Contains("javascript", response.Content.Headers.ContentType?.MediaType, StringComparison.OrdinalIgnoreCase);
     }
 }
