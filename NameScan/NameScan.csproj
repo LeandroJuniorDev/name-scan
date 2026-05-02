@@ -11,4 +11,8 @@
     <PackageReference Include="MudBlazor" Version="9.4.0" />
   </ItemGroup>
 
+  <ItemGroup>
+    <ProjectReference Include="..\NameScan.ServiceDefaults\NameScan.ServiceDefaults.csproj" />
+  </ItemGroup>
+
 </Project>
