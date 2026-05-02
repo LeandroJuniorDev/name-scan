@@ -30,3 +30,23 @@ Recursos principais:
 
 - Especificação de produto: `docs/superpowers/specs/2026-04-25-namescan-mvp-design.md`
 - Plano de implementação: `docs/superpowers/plans/2026-04-25-namescan-mvp-implementation.md`
+- Especificação de adoção do Aspire: `docs/superpowers/specs/2026-05-02-aspire-adoption-design.md`
+- Plano de adoção do Aspire: `docs/superpowers/plans/2026-05-02-aspire-adoption-implementation.md`
+
+## Execução
+
+Fluxo recomendado com Aspire:
+
+```bash
+dotnet run --project NameScan.AppHost
+```
+
+Fluxo direto do app web:
+
+```bash
+dotnet run --project NameScan
+```
+
+## Marco Do MVP
+
+O estado funcional anterior à adoção do `.NET Aspire` foi marcado com a tag anotada `v1.0.0-mvp`.
