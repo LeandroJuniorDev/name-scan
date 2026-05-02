@@ -1,0 +1,15 @@
+<Project Sdk="Aspire.AppHost.Sdk/13.2.4">
+
+  <ItemGroup>
+    <ProjectReference Include="..\NameScan\NameScan.csproj" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <UserSecretsId>5e00e799-2dc1-49d8-8497-e1b6b66f11f1</UserSecretsId>
+  </PropertyGroup>
+
+</Project>

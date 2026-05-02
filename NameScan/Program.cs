@@ -9,6 +9,8 @@ using MudBlazor.Services;
 var builder = WebApplication.CreateBuilder(args);
 builder.WebHost.UseStaticWebAssets();
 
+builder.AddServiceDefaults();
+
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
@@ -34,6 +36,8 @@ if (!app.Environment.IsDevelopment())
     app.UseHsts();
 }
 
+app.MapDefaultEndpoints();
+
 app.UseHttpsRedirection();
 app.UseAntiforgery();
 
@@ -43,8 +47,11 @@ app.MapGet("/api/check/stream", async (
     string? nickname,
     HandleCheckService checkService,
     HttpContext httpContext,
+    ILogger<Program> logger,
     CancellationToken cancellationToken) =>
 {
+    logger.LogInformation("NameScan stream requested for nickname {Nickname}", nickname);
+
     httpContext.Response.Headers.CacheControl = "no-cache";
     if (string.Equals(httpContext.Request.Protocol, "HTTP/1.1", StringComparison.OrdinalIgnoreCase))
     {
