@@ -1,6 +1,9 @@
+using System.Diagnostics;
+using System.Diagnostics.Metrics;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.Hosting;
 using System.Net;
+using NameScan.Features.Checks;
 
 namespace NameScan.Tests.Web;
 
@@ -68,6 +71,54 @@ public sealed class CheckStreamEndpointTests : IClassFixture<WebApplicationFacto
         Assert.Contains("Use apenas letras sem acento", content);
     }
 
+    [Fact]
+    public async Task StreamEndpoint_RecordsStreamTelemetryForInvalidNickname()
+    {
+        var client = _factory.CreateClient();
+        var measurements = new List<MetricMeasurement>();
+        var activities = new List<Activity>();
+
+        using var meterListener = new MeterListener();
+        meterListener.InstrumentPublished = (instrument, listener) =>
+        {
+            if (instrument.Meter.Name == CheckTelemetry.MeterName)
+            {
+                listener.EnableMeasurementEvents(instrument);
+            }
+        };
+        meterListener.SetMeasurementEventCallback<long>((instrument, measurement, tags, state) =>
+            measurements.Add(new MetricMeasurement(instrument.Name, measurement, tags.ToArray())));
+        meterListener.SetMeasurementEventCallback<double>((instrument, measurement, tags, state) =>
+            measurements.Add(new MetricMeasurement(instrument.Name, measurement, tags.ToArray())));
+        meterListener.Start();
+
+        using var activityListener = new ActivityListener
+        {
+            ShouldListenTo = source => source.Name == CheckTelemetry.ActivitySourceName,
+            Sample = static (ref ActivityCreationOptions<ActivityContext> _) => ActivitySamplingResult.AllDataAndRecorded,
+            SampleUsingParentId = static (ref ActivityCreationOptions<string> _) => ActivitySamplingResult.AllDataAndRecorded,
+            ActivityStopped = activity => activities.Add(activity)
+        };
+
+        ActivitySource.AddActivityListener(activityListener);
+
+        var content = await client.GetStringAsync("/api/check/stream?nickname=!");
+
+        Assert.Contains("event: error", content);
+        Assert.Contains(measurements, item => item.Name == "namescan.streams.started" && item.Value == 1);
+        Assert.Contains(
+            measurements,
+            item => item.Name == "namescan.streams.completed"
+                && item.Value == 1
+                && item.HasTag("outcome", "validation_error"));
+        Assert.Contains(measurements, item => item.Name == "namescan.stream.duration" && item.Value >= 0);
+        Assert.Contains(
+            activities,
+            activity => activity.OperationName == "namescan.stream"
+                && activity.GetTagItem("namescan.nickname")?.ToString() == "!"
+                && activity.GetTagItem("namescan.outcome")?.ToString() == "validation_error");
+    }
+
     [Theory]
     [InlineData("/_content/MudBlazor/MudBlazor.min.js")]
     [InlineData("/js/check-stream.js")]
@@ -79,5 +130,11 @@ public sealed class CheckStreamEndpointTests : IClassFixture<WebApplicationFacto
 
         Assert.True(response.IsSuccessStatusCode);
         Assert.Contains("javascript", response.Content.Headers.ContentType?.MediaType, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private sealed record MetricMeasurement(string Name, double Value, KeyValuePair<string, object?>[] Tags)
+    {
+        public bool HasTag(string key, string value) =>
+            Tags.Any(tag => tag.Key == key && string.Equals(tag.Value?.ToString(), value, StringComparison.Ordinal));
     }
 }

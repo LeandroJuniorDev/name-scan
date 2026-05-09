@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Text.Json;
 using NameScan.Features.Checks;
 using NameScan.Features.Reporting;
@@ -50,30 +51,88 @@ app.MapGet("/api/check/stream", async (
     ILogger<Program> logger,
     CancellationToken cancellationToken) =>
 {
-    logger.LogInformation("NameScan stream requested for nickname {Nickname}", nickname);
+    var requestedNickname = nickname ?? string.Empty;
+    var protocol = httpContext.Request.Protocol;
+    var stopwatch = Stopwatch.StartNew();
+    using var streamActivity = CheckTelemetry.StartStreamActivity(requestedNickname, protocol);
 
-    httpContext.Response.Headers.CacheControl = "no-cache";
-    if (string.Equals(httpContext.Request.Protocol, "HTTP/1.1", StringComparison.OrdinalIgnoreCase))
+    logger.LogInformation(
+        "NameScan stream started for nickname {Nickname} over {Protocol}",
+        requestedNickname,
+        protocol);
+
+    try
     {
-        httpContext.Response.Headers.Connection = "keep-alive";
-    }
-
-    httpContext.Response.ContentType = "text/event-stream; charset=utf-8";
-
-    await foreach (var streamEvent in checkService.StreamAsync(nickname, cancellationToken))
-    {
-        var eventName = streamEvent.Kind switch
+        httpContext.Response.Headers.CacheControl = "no-cache";
+        if (string.Equals(protocol, "HTTP/1.1", StringComparison.OrdinalIgnoreCase))
         {
-            CheckStreamEventKind.Result => "result",
-            CheckStreamEventKind.Done => "done",
-            CheckStreamEventKind.Error => "error",
-            _ => "error"
-        };
+            httpContext.Response.Headers.Connection = "keep-alive";
+        }
 
-        var json = JsonSerializer.Serialize(streamEvent, JsonOptions);
-        await httpContext.Response.WriteAsync($"event: {eventName}\n", cancellationToken);
-        await httpContext.Response.WriteAsync($"data: {json}\n\n", cancellationToken);
-        await httpContext.Response.Body.FlushAsync(cancellationToken);
+        httpContext.Response.ContentType = "text/event-stream; charset=utf-8";
+
+        await foreach (var streamEvent in checkService.StreamAsync(nickname, cancellationToken))
+        {
+            var eventName = streamEvent.Kind switch
+            {
+                CheckStreamEventKind.Result => "result",
+                CheckStreamEventKind.Done => "done",
+                CheckStreamEventKind.Error => "error",
+                _ => "error"
+            };
+
+            if (streamEvent.Kind == CheckStreamEventKind.Result && streamEvent.Result is not null)
+            {
+                logger.LogInformation(
+                    "NameScan stream emitted result for {Platform} with status {Status}",
+                    streamEvent.Result.Platform,
+                    streamEvent.Result.Status);
+            }
+
+            if (streamEvent.Kind == CheckStreamEventKind.Error)
+            {
+                streamActivity?.SetTag("namescan.outcome", "validation_error");
+            }
+
+            if (streamEvent.Kind == CheckStreamEventKind.Done)
+            {
+                streamActivity?.SetTag("namescan.outcome", "completed");
+            }
+
+            var json = JsonSerializer.Serialize(streamEvent, JsonOptions);
+            await httpContext.Response.WriteAsync($"event: {eventName}\n", cancellationToken);
+            await httpContext.Response.WriteAsync($"data: {json}\n\n", cancellationToken);
+            await httpContext.Response.Body.FlushAsync(cancellationToken);
+        }
+
+        var outcome = streamActivity?.GetTagItem("namescan.outcome")?.ToString() ?? "completed";
+        logger.LogInformation(
+            "NameScan stream completed for nickname {Nickname} with outcome {Outcome}",
+            requestedNickname,
+            outcome);
+
+        CheckTelemetry.RecordStreamCompleted(outcome, stopwatch.Elapsed, protocol);
+    }
+    catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+    {
+        streamActivity?.SetTag("namescan.outcome", "cancelled");
+        logger.LogInformation(
+            "NameScan stream cancelled for nickname {Nickname}",
+            requestedNickname);
+        CheckTelemetry.RecordStreamCompleted("cancelled", stopwatch.Elapsed, protocol);
+        throw;
+    }
+    catch (Exception exception)
+    {
+        streamActivity?.SetTag("namescan.outcome", "bootstrap_error");
+        streamActivity?.SetStatus(ActivityStatusCode.Error, exception.Message);
+        logger.LogError(
+            exception,
+            "NameScan stream failed before completion for nickname {Nickname}",
+            requestedNickname);
+        CheckTelemetry.RecordStreamBootstrapError(protocol);
+        CheckTelemetry.RecordStreamCompleted("bootstrap_error", stopwatch.Elapsed, protocol);
+        throw;
     }
 });
 
