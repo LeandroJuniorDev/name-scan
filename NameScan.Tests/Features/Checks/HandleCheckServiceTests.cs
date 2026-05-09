@@ -1,3 +1,5 @@
+using System.Diagnostics;
+using System.Diagnostics.Metrics;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging.Abstractions;
 using NameScan.Features.Checks;
@@ -110,6 +112,71 @@ public sealed class HandleCheckServiceTests
             await CollectAsync(service.StreamAsync("minhamarca", cancellationTokenSource.Token)));
     }
 
+    [Fact]
+    public async Task StreamAsync_RecordsDomainMetricsForCompletedChecks()
+    {
+        var service = CreateService([new FakeChecker("GitHub", CheckStatus.Available)]);
+        var measurements = new List<MetricMeasurement>();
+        using var listener = new MeterListener();
+
+        listener.InstrumentPublished = (instrument, meterListener) =>
+        {
+            if (instrument.Meter.Name == CheckTelemetry.MeterName)
+            {
+                meterListener.EnableMeasurementEvents(instrument);
+            }
+        };
+
+        listener.SetMeasurementEventCallback<long>((instrument, measurement, tags, state) =>
+            measurements.Add(new MetricMeasurement(instrument.Name, measurement, tags.ToArray())));
+        listener.SetMeasurementEventCallback<double>((instrument, measurement, tags, state) =>
+            measurements.Add(new MetricMeasurement(instrument.Name, measurement, tags.ToArray())));
+        listener.Start();
+
+        _ = await CollectAsync(service.StreamAsync("minhamarca", CancellationToken.None));
+
+        Assert.Contains(measurements, item => item.Name == "namescan.checks.started" && item.Value == 1);
+        Assert.Contains(measurements, item => item.Name == "namescan.checks.completed" && item.Value == 1);
+        Assert.Contains(
+            measurements,
+            item => item.Name == "namescan.platform.results"
+                && item.Value == 1
+                && item.HasTag("platform", "GitHub")
+                && item.HasTag("status", nameof(CheckStatus.Available)));
+        Assert.Contains(measurements, item => item.Name == "namescan.check.duration" && item.Value > 0);
+        Assert.Contains(
+            measurements,
+            item => item.Name == "namescan.platform_check.duration"
+                && item.Value > 0
+                && item.HasTag("platform", "GitHub"));
+    }
+
+    [Fact]
+    public async Task StreamAsync_CreatesTracingActivitiesForTheCheckFlow()
+    {
+        var service = CreateService([new FakeChecker("GitHub", CheckStatus.Available)]);
+        var activities = new List<Activity>();
+
+        using var listener = new ActivityListener
+        {
+            ShouldListenTo = source => source.Name == CheckTelemetry.ActivitySourceName,
+            Sample = static (ref ActivityCreationOptions<ActivityContext> _) => ActivitySamplingResult.AllDataAndRecorded,
+            SampleUsingParentId = static (ref ActivityCreationOptions<string> _) => ActivitySamplingResult.AllDataAndRecorded,
+            ActivityStopped = activity => activities.Add(activity)
+        };
+
+        ActivitySource.AddActivityListener(listener);
+
+        _ = await CollectAsync(service.StreamAsync("minhamarca", CancellationToken.None));
+
+        Assert.Contains(activities, activity => activity.OperationName == "namescan.check");
+        Assert.Contains(
+            activities,
+            activity => activity.OperationName == "namescan.platform_check"
+                && activity.GetTagItem("namescan.platform")?.ToString() == "GitHub"
+                && activity.GetTagItem("namescan.status")?.ToString() == nameof(CheckStatus.Available));
+    }
+
     private static HandleCheckService CreateService(IReadOnlyList<IPlatformChecker> checkers) =>
         new(
             new NicknameValidator(),
@@ -205,5 +272,11 @@ public sealed class HandleCheckServiceTests
             await Task.Delay(Timeout.InfiniteTimeSpan);
             return new PlatformCheckResult(Name, $"https://example.com/{nickname}", CheckStatus.Available, ConfidenceLevel.High, "Teste.");
         }
+    }
+
+    private sealed record MetricMeasurement(string Name, double Value, KeyValuePair<string, object?>[] Tags)
+    {
+        public bool HasTag(string key, string value) =>
+            Tags.Any(tag => tag.Key == key && string.Equals(tag.Value?.ToString(), value, StringComparison.Ordinal));
     }
 }
