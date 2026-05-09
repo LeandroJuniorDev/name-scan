@@ -13,8 +13,40 @@ public static class CheckTelemetry
     private static readonly Counter<long> ChecksStarted = Meter.CreateCounter<long>("namescan.checks.started");
     private static readonly Counter<long> ChecksCompleted = Meter.CreateCounter<long>("namescan.checks.completed");
     private static readonly Counter<long> PlatformResults = Meter.CreateCounter<long>("namescan.platform.results");
+    private static readonly Counter<long> StreamsStarted = Meter.CreateCounter<long>("namescan.streams.started");
+    private static readonly Counter<long> StreamsCompleted = Meter.CreateCounter<long>("namescan.streams.completed");
+    private static readonly Counter<long> StreamBootstrapErrors = Meter.CreateCounter<long>("namescan.stream.bootstrap_errors");
     private static readonly Histogram<double> CheckDuration = Meter.CreateHistogram<double>("namescan.check.duration", unit: "ms");
     private static readonly Histogram<double> PlatformCheckDuration = Meter.CreateHistogram<double>("namescan.platform_check.duration", unit: "ms");
+    private static readonly Histogram<double> StreamDuration = Meter.CreateHistogram<double>("namescan.stream.duration", unit: "ms");
+
+    public static Activity? StartStreamActivity(string nickname, string protocol)
+    {
+        StreamsStarted.Add(1);
+
+        var activity = ActivitySource.StartActivity("namescan.stream", ActivityKind.Server);
+        activity?.SetTag("namescan.nickname", nickname);
+        activity?.SetTag("namescan.protocol", protocol);
+        return activity;
+    }
+
+    public static void RecordStreamCompleted(string outcome, TimeSpan duration, string protocol)
+    {
+        StreamsCompleted.Add(
+            1,
+            new KeyValuePair<string, object?>("outcome", outcome),
+            new KeyValuePair<string, object?>("protocol", protocol));
+
+        StreamDuration.Record(
+            duration.TotalMilliseconds,
+            new KeyValuePair<string, object?>("outcome", outcome),
+            new KeyValuePair<string, object?>("protocol", protocol));
+    }
+
+    public static void RecordStreamBootstrapError(string protocol)
+    {
+        StreamBootstrapErrors.Add(1, new KeyValuePair<string, object?>("protocol", protocol));
+    }
 
     public static Activity? StartCheckActivity(string nickname, int checkerCount)
     {
