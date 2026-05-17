@@ -2,8 +2,12 @@ using System.Diagnostics;
 using System.Diagnostics.Metrics;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.TestHost;
 using System.Net;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using NameScan.Features.Checks;
+using NameScan.Platforms;
 
 namespace NameScan.Tests.Web;
 
@@ -57,6 +61,35 @@ public sealed class CheckStreamEndpointTests : IClassFixture<WebApplicationFacto
 
         Assert.True(response.IsSuccessStatusCode);
         Assert.Empty(response.Headers.Connection);
+    }
+
+    [Fact]
+    public async Task StreamEndpoint_ReturnsResultAndDoneEventsForValidNickname()
+    {
+        var client = _factory.WithWebHostBuilder(builder =>
+        {
+            builder.ConfigureTestServices(services =>
+            {
+                services.RemoveAll<IPlatformRegistry>();
+                services.AddSingleton<IPlatformRegistry>(
+                    new FakePlatformRegistry(
+                    [
+                        new FakePlatformChecker("GitHub", CheckStatus.Available),
+                        new FakePlatformChecker("Instagram", CheckStatus.Occupied)
+                    ]));
+            });
+        }).CreateClient();
+
+        var content = await client.GetStringAsync("/api/check/stream?nickname=minhamarca");
+
+        Assert.Contains("event: result", content);
+        Assert.Contains("event: done", content);
+        Assert.Contains("data:", content);
+        Assert.DoesNotContain("event: error", content);
+        Assert.Contains("\"GitHub\"", content);
+        Assert.True(
+            content.LastIndexOf("event: result", StringComparison.Ordinal) <
+            content.LastIndexOf("event: done", StringComparison.Ordinal));
     }
 
     [Fact]
